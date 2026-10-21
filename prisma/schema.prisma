@@ -1,0 +1,123 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  phoneNumber String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  payments    Payment[]
+  loginCodes  LoginCode[]
+
+  @@map("users")
+}
+
+model Package {
+  id          String   @id @default(cuid())
+  name        String
+  price       Int      // Price in KES (cents)
+  duration    Int      // Duration in hours
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  payments Payment[]
+
+  @@map("packages")
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  userId            String
+  packageId         String
+  phoneNumber       String
+  amount            Int           // Amount in KES (cents)
+  mpesaReceiptNumber String?      // MPESA confirmation code
+  transactionId     String?       // Internal transaction ID
+  status            PaymentStatus @default(PENDING)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  package  Package   @relation(fields: [packageId], references: [id])
+  loginCode LoginCode?
+
+  @@map("payments")
+}
+
+model LoginCode {
+  id          String     @id @default(cuid())
+  code        String     @unique
+  userId      String
+  paymentId   String     @unique
+  deviceInfo  String?    // MAC address or device identifier
+  ipAddress   String?
+  status      CodeStatus @default(ACTIVE)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("login_codes")
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String   // Hashed password
+  email     String?  @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins")
+}
+
+model SystemLog {
+  id        String    @id @default(cuid())
+  level     LogLevel  @default(INFO)
+  message   String
+  metadata  String?   // JSON string for additional data
+  createdAt DateTime  @default(now())
+
+  @@map("system_logs")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum CodeStatus {
+  ACTIVE
+  USED
+  EXPIRED
+  REVOKED
+}
+
+enum LogLevel {
+  INFO
+  WARN
+  ERROR
+  DEBUG
+}
